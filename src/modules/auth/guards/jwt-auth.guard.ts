@@ -63,13 +63,16 @@ export class JwtAuthGuard implements CanActivate {
       return undefined;
     }
 
-    const parts = authHeader.split(' ');
+    // Handle case where header might be an array
+    const authHeaderStr = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+
+    const parts = authHeaderStr.split(' ');
     
     if (parts.length >= 2 && parts[0].toLowerCase() === 'bearer') {
       return parts.slice(1).join(' ').trim();
     }
   
-    return authHeader.trim();
+    return authHeaderStr.trim();
   }
 }
 

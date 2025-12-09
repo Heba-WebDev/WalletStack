@@ -40,7 +40,8 @@ export class CombinedAuthGuard implements CanActivate {
 
     const authHeader =
       request.headers.authorization || request.headers['Authorization'];
-    if (authHeader && authHeader.startsWith('Bearer ')) {
+    const authHeaderStr = Array.isArray(authHeader) ? authHeader[0] : authHeader;
+    if (authHeaderStr && authHeaderStr.startsWith('Bearer ')) {
       try {
         return await this.jwtGuard.canActivate(context);
       } catch (error) {

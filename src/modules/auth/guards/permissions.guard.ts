@@ -37,8 +37,9 @@ export class PermissionsGuard implements CanActivate {
 
     // If API key, check permissions
     if (request.apiKey) {
+      const apiKey = request.apiKey; // Type narrowing
       const hasAllPermissions = requiredPermissions.every((permission) =>
-        this.apiKeysService.hasPermission(request.apiKey, permission),
+        this.apiKeysService.hasPermission(apiKey, permission),
       );
 
       if (!hasAllPermissions) {
