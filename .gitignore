@@ -97,3 +97,9 @@ uploads/
 # Local development
 .local
 
+# Project docs and schema exports
+DESIGN_DECISIONS.md
+SCHEMA_QUICK_REFERENCE.md
+database_schema.md
+schema.sql
+
