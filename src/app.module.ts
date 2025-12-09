@@ -5,6 +5,7 @@ import { dataSourceOptions } from '@database/data-source';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { WalletsModule } from './modules/wallets/wallets.module';
+import { ApiKeysModule } from './modules/api-keys/api-keys.module';
 
 
 @Module({
@@ -18,6 +19,7 @@ import { WalletsModule } from './modules/wallets/wallets.module';
     UsersModule,
     AuthModule,
     WalletsModule,
+    ApiKeysModule,
   ],
   controllers: [],
   providers: [],

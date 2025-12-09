@@ -12,8 +12,10 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      forbidNonWhitelisted: false,
+      forbidNonWhitelisted: true,
       transformOptions: { enableImplicitConversion: true },
+      stopAtFirstError: false,
+      enableDebugMessages: false,
     }),
   );
 
@@ -30,14 +32,27 @@ async function bootstrap() {
     .addTag('Auth')
     .addTag('Users')
     .addTag('Wallets')
-    .addBearerAuth()
+    .addTag('API Keys')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'JWT',
+        description: 'Enter JWT token',
+        in: 'header',
+      },
+      'JWT-auth',
+    )
     .build();
 
   const swaggerDocument = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, swaggerDocument, {
     swaggerOptions: {
       persistAuthorization: true,
+      persistAuthorizationInLocalStorage: true,
     },
+    customSiteTitle: 'WalletStack API Docs',
   });
 
   const port = process.env.PORT || 3000;

@@ -5,11 +5,17 @@ import { JwtModule, JwtModuleOptions } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { UsersModule } from '../users/users.module';
 import { GoogleAuthService } from './services/google-auth.service';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { ApiKeyGuard } from './guards/api-key.guard';
+import { CombinedAuthGuard } from './guards/combined-auth.guard';
+import { PermissionsGuard } from './guards/permissions.guard';
+import { ApiKeysModule } from '../api-keys/api-keys.module';
 
 @Module({
   imports: [
     ConfigModule,
     UsersModule,
+    ApiKeysModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService): JwtModuleOptions => {
@@ -31,7 +37,21 @@ import { GoogleAuthService } from './services/google-auth.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, GoogleAuthService],
-  exports: [AuthService],
+  providers: [
+    AuthService,
+    GoogleAuthService,
+    JwtAuthGuard,
+    ApiKeyGuard,
+    CombinedAuthGuard,
+    PermissionsGuard,
+  ],
+  exports: [
+    AuthService,
+    JwtAuthGuard,
+    ApiKeyGuard,
+    CombinedAuthGuard,
+    PermissionsGuard,
+    JwtModule,
+  ],
 })
 export class AuthModule {}
