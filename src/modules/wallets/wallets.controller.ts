@@ -2,8 +2,10 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
@@ -14,6 +16,8 @@ import { RequirePermissions } from '../auth/decorators/require-permissions.decor
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
 import { ApiKeyPermission } from '../api-keys/dtos/create-api-key.dto';
+import { DepositDto } from './dtos/deposit.dto';
+import { TransferDto } from './dtos/transfer.dto';
 
 @Controller('wallet')
 @ApiTags('Wallets')
@@ -30,10 +34,9 @@ export class WalletsController {
     required: false,
   })
   async deposit(
-    @Body() depositDto: { amount: number },
+    @Body() depositDto: DepositDto,
     @CurrentUser() user: CurrentUserPayload,
   ) {
-    // TODO: Implement deposit logic with Paystack
     return this.walletsService.deposit(user.id, depositDto.amount);
   }
 
@@ -60,7 +63,7 @@ export class WalletsController {
     required: false,
   })
   async transfer(
-    @Body() transferDto: { wallet_number: string; amount: number },
+    @Body() transferDto: TransferDto,
     @CurrentUser() user: CurrentUserPayload,
   ) {
     return this.walletsService.transfer(
@@ -101,7 +104,29 @@ export class WalletsController {
 
   @Post('paystack/webhook')
   // No authentication - webhook from Paystack (will be verified by signature)
-  async paystackWebhook(@Body() webhookData: any) {
-    return this.walletsService.handlePaystackWebhook(webhookData);
+  async paystackWebhook(
+    @Body() webhookData: any,
+    @Headers('x-paystack-signature') signature: string,
+    @Req() req: any,
+  ) {
+    // Get raw body from request (set by middleware in main.ts)
+    const rawBody = (req as any).rawBody;
+    return this.walletsService.handlePaystackWebhook(webhookData, signature, rawBody);
+  }
+
+  @Post('deposit/:reference/verify')
+  @UseGuards(CombinedAuthGuard, PermissionsGuard)
+  @RequirePermissions(ApiKeyPermission.DEPOSIT)
+  @ApiBearerAuth('JWT-auth')
+  @ApiHeader({
+    name: 'x-api-key',
+    description: 'API Key for service-to-service access (alternative to JWT)',
+    required: false,
+  })
+  async verifyDeposit(
+    @Param('reference') reference: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    return this.walletsService.verifyAndProcessDeposit(user.id, reference);
   }
 }
