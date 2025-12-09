@@ -45,32 +45,6 @@ Use `env.example` as a template:
 ```bash
 cp env.example .env
 ```
-Required variables:
-- `PORT=3000`
-- `NODE_ENV=development`
-- `DATABASE_URL=postgres://user:password@localhost:5432/walletstack`
-- `JWT_SECRET=change_me`
-- `JWT_EXPIRES_IN=1d`
-- `PAYSTACK_PUBLIC_KEY=pk_test_change_me`
-- `PAYSTACK_SECRET_KEY=psk_test_change_me`
-- `PAYSTACK_WEBHOOK_SECRET=whsec_change_me`
-- `API_KEY_MAX_ACTIVE=5`
-- `LOG_LEVEL=info`
-
-## 🗺️ Project Structure (current scaffold)
-- `src/main.ts` — Nest bootstrap
-- `src/app.module.ts` — root module
-- `src/entities/base.entity.ts` — abstract base entity (UUID + timestamps)
-- `src/shared/abstract-model-action.ts` — reusable CRUD/model helper
-- `src/shared/helpers/pagination.helper.ts` — pagination meta helper
-
-## 🧭 Path Aliases
-Defined in `tsconfig.json`:
-- `@config/*` → `src/config/*`
-- `@database/*` → `src/database/*`
-- `@entities/*` → `src/entities/*`
-- `@shared/*` → `src/shared/*`
-- `@helpers/*` → `src/shared/helpers/*`
 
 ## 📐 Data Model
 - `users` — Google-auth users
@@ -80,8 +54,9 @@ Defined in `tsconfig.json`:
 - `api_keys` — hashed keys, permissions array, expiry, rollover via `parent_key_id`
 - `audit_logs` — records critical actions (actor: user or API key), action type, target entity, metadata, timestamp
 
+## 📎 Database Schema Reference
+- Diagram: https://drawsql.app/teams/mercadotop/diagrams/walletstack
+
 ## 🧑‍💻 Author
 - Heba Omar
 
-## 📎 Database Schema Reference
-- Diagram: https://drawsql.app/teams/mercadotop/diagrams/walletstack
