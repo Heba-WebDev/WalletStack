@@ -98,8 +98,9 @@ uploads/
 .local
 
 # Project docs and schema exports
-DESIGN_DECISIONS.md
-SCHEMA_QUICK_REFERENCE.md
-database_schema.md
+# Ignore all Markdown except the main README
+*.md
+!README.md
+# Ignore exported schema files
 schema.sql
 
