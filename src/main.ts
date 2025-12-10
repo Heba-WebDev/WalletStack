@@ -11,6 +11,13 @@ async function bootstrap() {
   });
   const logger = new Logger('Bootstrap');
 
+  app.enableCors({
+    origin: true, 
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
+  });
+
   // Custom body parser that preserves raw body for webhook
   app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (req.path === '/v1/wallet/paystack/webhook' || req.path === '/wallet/paystack/webhook') {

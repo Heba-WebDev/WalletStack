@@ -32,7 +32,13 @@ export class GoogleAuthService {
       this.configService.get<string>('GOOGLE_CLIENT_ID') ?? '';
     this.googleClientSecret =
       this.configService.get<string>('GOOGLE_CLIENT_SECRET') ?? '';
-    const baseUrl = this.configService.get<string>('BASE_URL') ?? 'http://localhost:3000';
+    
+    // Determine base URL: use BASE_URL if set, otherwise construct from PORT
+    let baseUrl = this.configService.get<string>('BASE_URL');
+    if (!baseUrl) {
+      const port = this.configService.get<string>('PORT') ?? '3000';
+      baseUrl = `http://localhost:${port}`;
+    }
     this.redirectUri = `${baseUrl}/v1/auth/google/callback`;
 
     if (!this.googleClientId) {
@@ -42,7 +48,6 @@ export class GoogleAuthService {
       );
     }
 
-    // Client secret is optional - needed for OAuth redirect flow, not for ID token verification
     this.googleClient = new OAuth2Client(
       this.googleClientId,
       this.googleClientSecret || undefined,

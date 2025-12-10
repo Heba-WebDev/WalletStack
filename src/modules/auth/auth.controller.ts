@@ -22,12 +22,14 @@ export class AuthController {
   }
 
   @Get('google')
+  @GoogleAuthDocs.googleAuthRedirect()
   async googleAuthRedirect(@Res() res: Response) {
     const authUrl = this.googleAuthService.getAuthUrl();
     return res.redirect(authUrl);
   }
 
   @Get('google/callback')
+  @GoogleAuthDocs.googleAuthCallback()
   async googleAuthCallback(@Query('code') code: string, @Res() res: Response) {
     if (!code) {
       return res.status(400).json({ message: 'Authorization code is required' });

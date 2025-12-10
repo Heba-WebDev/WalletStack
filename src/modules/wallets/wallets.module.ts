@@ -13,6 +13,7 @@ import { CoreWalletService } from './services/core-wallet.service';
 import { PaystackService } from './services/paystack.service';
 import { AuthModule } from '../auth/auth.module';
 import { ApiKeysModule } from '../api-keys/api-keys.module';
+import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { ApiKeysModule } from '../api-keys/api-keys.module';
     ConfigModule,
     forwardRef(() => AuthModule),
     forwardRef(() => ApiKeysModule),
+    AuditLogsModule,
   ],
   controllers: [WalletsController],
   providers: [
