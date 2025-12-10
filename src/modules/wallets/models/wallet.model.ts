@@ -14,16 +14,14 @@ export class Wallet extends AbstractBaseEntity {
 
   @Column({
     name: 'balance',
-    type: 'decimal',
-    precision: 10,
-    scale: 2,
+    type: 'bigint',
     default: 0,
     transformer: {
       to: (value: number) => value,
       from: (value: string | null) => (value === null ? null : Number(value)),
     },
   })
-  balance: number;
+  balance: number; // Stored in smallest currency unit (kobo for NGN)
 
   @Column({ name: 'currency', type: 'enum', enum: WalletCurrency })
   currency: WalletCurrency;

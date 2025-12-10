@@ -19,6 +19,8 @@ import {
   AuditLogActionType,
   AuditLogActorType,
 } from '../audit-logs/models/audit-log.model';
+import { toSmallestUnit, fromSmallestUnit } from '@shared/helpers/currency.helper';
+import { computePaginationMeta, PaginationMeta } from '@shared/helpers/pagination.helper';
 
 @Injectable()
 export class WalletsService {
@@ -49,6 +51,9 @@ export class WalletsService {
       throw new CustomHttpException('Wallet not found', HttpStatus.NOT_FOUND);
     }
 
+    // Convert NGN to kobo (smallest unit) for storage
+    const amountInKobo = toSmallestUnit(amount, wallet.currency);
+
     // Generate unique reference
     const reference = `deposit_${uuidv4()}`;
 
@@ -61,7 +66,7 @@ export class WalletsService {
       throw new CustomHttpException('User not found', HttpStatus.NOT_FOUND);
     }
 
-    // Initialize Paystack transaction
+    // Initialize Paystack transaction (amount is in NGN, PaystackService converts to kobo)
     console.log('[Deposit] Initializing Paystack transaction with reference:', reference);
     const paystackResponse = await this.paystackService.initializeTransaction(
       amount,
@@ -76,16 +81,16 @@ export class WalletsService {
     console.log('[Deposit] Paystack response reference:', paystackResponse.data.reference);
     console.log('[Deposit] Reference match:', reference === paystackResponse.data.reference);
 
-    // Create transaction record
+    // Create transaction record (store in kobo)
     const transaction = await this.transactionsModelAction.create({
       createPayload: {
         type: TransactionType.DEPOSIT,
-        amount,
+        amount: amountInKobo, // Store in kobo
         status: TransactionStatus.PENDING,
         reference,
         senderWalletId: null,
         recipientWalletId: wallet.id,
-        description: `Deposit of ${amount}`,
+        description: `Deposit of ${amount} ${wallet.currency}`,
       },
     });
 
@@ -96,7 +101,7 @@ export class WalletsService {
       );
     }
 
-    // Create Paystack transaction record
+    // Create Paystack transaction record (store in kobo)
     // IMPORTANT: Store the reference that Paystack returns (should match what we sent)
     const paystackRef = paystackResponse.data.reference;
     console.log('[Deposit] Storing Paystack transaction with reference:', paystackRef);
@@ -105,7 +110,7 @@ export class WalletsService {
         transactionId: transaction.id,
         paystackReference: paystackRef,
         authorizationUrl: paystackResponse.data.authorization_url,
-        amount,
+        amount: amountInKobo, // Store in kobo
         currency: wallet.currency,
         customerEmail: user.email,
         paystackStatus: 'pending',
@@ -143,8 +148,11 @@ export class WalletsService {
       throw new CustomHttpException('Wallet not found', HttpStatus.NOT_FOUND);
     }
 
+    // Convert from kobo (storage) to NGN (API response)
+    const balanceInMainCurrency = fromSmallestUnit(wallet.balance, wallet.currency);
+
     return {
-      balance: wallet.balance,
+      balance: balanceInMainCurrency,
     };
   }
 
@@ -161,6 +169,7 @@ export class WalletsService {
   }
 
   async transfer(userId: string, walletNumber: string, amount: number, actor?: CurrentActorInfo) {
+    // amount is in NGN (main currency unit) from API
     return await this.dataSource.transaction(async (manager) => {
       // Get sender wallet
       const senderWallet = await this.walletsModelAction.get({ userId });
@@ -171,8 +180,11 @@ export class WalletsService {
         );
       }
 
-      // Check balance
-      if (senderWallet.balance < amount) {
+      // Convert NGN to kobo for storage and calculations
+      const amountInKobo = toSmallestUnit(amount, senderWallet.currency);
+
+      // Check balance (both are in kobo)
+      if (senderWallet.balance < amountInKobo) {
         throw new CustomHttpException(
           'Insufficient balance',
           HttpStatus.BAD_REQUEST,
@@ -201,11 +213,11 @@ export class WalletsService {
       // Generate reference
       const reference = `transfer_${uuidv4()}`;
 
-      // Create transaction record
+      // Create transaction record (store in kobo)
       const transaction = await this.transactionsModelAction.create({
         createPayload: {
           type: TransactionType.TRANSFER,
-          amount,
+          amount: amountInKobo, // Store in kobo
           status: TransactionStatus.SUCCESS,
           reference,
           senderWalletId: senderWallet.id,
@@ -225,17 +237,17 @@ export class WalletsService {
         );
       }
 
-      // Update balances atomically
+      // Update balances atomically (both in kobo)
       await manager.update(
         Wallet,
         { id: senderWallet.id },
-        { balance: senderWallet.balance - amount },
+        { balance: senderWallet.balance - amountInKobo },
       );
 
       await manager.update(
         Wallet,
         { id: recipientWallet.id },
-        { balance: recipientWallet.balance + amount },
+        { balance: recipientWallet.balance + amountInKobo },
       );
 
       // Log audit event
@@ -264,48 +276,78 @@ export class WalletsService {
     });
   }
 
-  async getTransactions(userId: string) {
+  async getTransactions(userId: string, page: number = 1, limit: number = 20) {
     const wallet = await this.walletsModelAction.get({ userId });
     if (!wallet) {
       throw new CustomHttpException('Wallet not found', HttpStatus.NOT_FOUND);
     }
 
-    // Get transactions where wallet is sender or recipient
-    const senderTransactions = await this.dataSource
+    // Calculate pagination
+    const safeLimit = Math.max(limit, 1);
+    const safePage = Math.max(page, 1);
+    const skip = (safePage - 1) * safeLimit;
+
+    // Get total count of transactions where wallet is sender or recipient
+    const [senderTransactions, senderCount] = await this.dataSource
       .getRepository(Transaction)
-      .find({
+      .findAndCount({
         where: { senderWalletId: wallet.id },
         order: { createdAt: 'DESC' },
-        take: 100,
       });
 
-    const recipientTransactions = await this.dataSource
+    const [recipientTransactions, recipientCount] = await this.dataSource
       .getRepository(Transaction)
-      .find({
+      .findAndCount({
         where: { recipientWalletId: wallet.id },
         order: { createdAt: 'DESC' },
-        take: 100,
       });
 
     // Combine and deduplicate
     const allTransactions = [...senderTransactions, ...recipientTransactions];
-    const uniqueTransactions = Array.from(
-      new Map(allTransactions.map((t) => [t.id, t])).values(),
-    );
+    const uniqueTransactionsMap = new Map<string, Transaction>();
+    
+    allTransactions.forEach((t) => {
+      if (!uniqueTransactionsMap.has(t.id)) {
+        uniqueTransactionsMap.set(t.id, t);
+      }
+    });
 
-    // Sort by created date
+    const uniqueTransactions = Array.from(uniqueTransactionsMap.values());
+
+    // Sort by created date (most recent first)
     uniqueTransactions.sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
 
-    return uniqueTransactions.map((t) => ({
-      type: t.type,
-      amount: t.amount,
-      status: t.status,
-      reference: t.reference,
-      description: t.description,
-      created_at: t.createdAt,
-    }));
+    // Calculate total unique transactions
+    const total = uniqueTransactions.length;
+
+    // Apply pagination
+    const paginatedTransactions = uniqueTransactions.slice(skip, skip + safeLimit);
+
+    // Convert amounts and format response
+    const currency = wallet.currency;
+    const data = paginatedTransactions.map((t) => {
+      // Convert from kobo (storage) to NGN (API response)
+      const amountInMainCurrency = fromSmallestUnit(t.amount, currency);
+      
+      return {
+        type: t.type,
+        amount: amountInMainCurrency,
+        status: t.status,
+        reference: t.reference,
+        description: t.description,
+        created_at: t.createdAt,
+      };
+    });
+
+    // Compute pagination metadata
+    const paginationMeta = computePaginationMeta(total, safeLimit, safePage);
+
+    return {
+      data,
+      meta: paginationMeta,
+    };
   }
 
   async getDepositStatus(userId: string, reference: string) {
@@ -346,10 +388,13 @@ export class WalletsService {
       );
     }
 
+    // Convert from kobo (storage) to NGN (API response)
+    const amountInMainCurrency = fromSmallestUnit(transaction.amount, wallet.currency);
+
     return {
       reference: paystackTransaction.paystackReference,
       status: transaction.status,
-      amount: transaction.amount,
+      amount: amountInMainCurrency,
     };
   }
 
@@ -460,6 +505,19 @@ export class WalletsService {
         throw new CustomHttpException(
           'Transaction not found',
           HttpStatus.NOT_FOUND,
+        );
+      }
+
+      // Verify amount matches (Paystack sends amount in kobo, our transaction.amount is also in kobo)
+      const paystackAmountInKobo = data.amount; // Paystack sends amount in kobo
+      if (transaction.amount !== paystackAmountInKobo) {
+        console.error('[Webhook] Amount mismatch:', {
+          stored: transaction.amount,
+          paystack: paystackAmountInKobo,
+        });
+        throw new CustomHttpException(
+          'Amount mismatch between stored transaction and Paystack',
+          HttpStatus.BAD_REQUEST,
         );
       }
 
@@ -601,6 +659,9 @@ export class WalletsService {
       reference,
     );
 
+    // Convert from kobo (storage) to NGN (API response)
+    const amountInMainCurrency = fromSmallestUnit(transaction.amount, wallet.currency);
+
     // Return verification info without crediting wallet
     // This is for manual checking only - webhook must credit the wallet
     return {
@@ -608,7 +669,7 @@ export class WalletsService {
       local_status: transaction.status, // Status in our database
       paystack_status: verifyResponse.data.status, // Status from Paystack
       paystack_verified: verifyResponse.status && verifyResponse.data.status === 'success',
-      amount: transaction.amount,
+      amount: amountInMainCurrency, // Converted to NGN for API response
       webhook_received: paystackTransaction.webhookReceived,
       message: paystackTransaction.webhookReceived
         ? 'Transaction already processed via webhook'

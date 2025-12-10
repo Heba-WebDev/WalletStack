@@ -41,7 +41,7 @@ export class CoreUsersService {
       const wallet = await this.walletsService.createWallet(
         {
           number: generateWalletNumber(),
-          currency: WalletCurrency.USD,
+          currency: WalletCurrency.NGN,
           userId: user.id,
         },
         transaction,

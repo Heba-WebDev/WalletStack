@@ -73,10 +73,19 @@ async function bootstrap() {
         scheme: 'bearer',
         bearerFormat: 'JWT',
         name: 'JWT',
-        description: 'Enter JWT token',
+        description: 'Enter JWT token (with or without Bearer prefix)',
         in: 'header',
       },
       'JWT-auth',
+    )
+    .addApiKey(
+      {
+        type: 'apiKey',
+        name: 'x-api-key',
+        in: 'header',
+        description: 'API Key for service-to-service access (alternative to JWT). You can use either JWT or API Key for authentication.',
+      },
+      'API-Key-auth',
     )
     .build();
 

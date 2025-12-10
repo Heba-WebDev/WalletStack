@@ -5,10 +5,11 @@ import {
   Headers,
   Param,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth, ApiHeader } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiSecurity } from '@nestjs/swagger';
 import { WalletsService } from './wallets.service';
 import { CombinedAuthGuard } from '../auth/guards/combined-auth.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
@@ -19,6 +20,7 @@ import { CurrentActor, CurrentActorInfo } from '../auth/decorators/current-actor
 import { ApiKeyPermission } from '../api-keys/dtos/create-api-key.dto';
 import { DepositDto } from './dtos/deposit.dto';
 import { TransferDto } from './dtos/transfer.dto';
+import { PaginationQueryDto } from './dtos/pagination-query.dto';
 import { WalletsDocs } from './docs';
 
 @Controller('wallet')
@@ -30,11 +32,7 @@ export class WalletsController {
   @UseGuards(CombinedAuthGuard, PermissionsGuard)
   @RequirePermissions(ApiKeyPermission.DEPOSIT)
   @ApiBearerAuth('JWT-auth')
-  @ApiHeader({
-    name: 'x-api-key',
-    description: 'API Key for service-to-service access (alternative to JWT)',
-    required: false,
-  })
+  @ApiSecurity('API-Key-auth')
   async deposit(
     @Body() depositDto: DepositDto,
     @CurrentUser() user: CurrentUserPayload,
@@ -47,11 +45,7 @@ export class WalletsController {
   @UseGuards(CombinedAuthGuard, PermissionsGuard)
   @RequirePermissions(ApiKeyPermission.READ)
   @ApiBearerAuth('JWT-auth')
-  @ApiHeader({
-    name: 'x-api-key',
-    description: 'API Key for service-to-service access (alternative to JWT)',
-    required: false,
-  })
+  @ApiSecurity('API-Key-auth')
   async getBalance(@CurrentUser() user: CurrentUserPayload) {
     return this.walletsService.getBalance(user.id);
   }
@@ -68,11 +62,7 @@ export class WalletsController {
   @UseGuards(CombinedAuthGuard, PermissionsGuard)
   @RequirePermissions(ApiKeyPermission.TRANSFER)
   @ApiBearerAuth('JWT-auth')
-  @ApiHeader({
-    name: 'x-api-key',
-    description: 'API Key for service-to-service access (alternative to JWT)',
-    required: false,
-  })
+  @ApiSecurity('API-Key-auth')
   async transfer(
     @Body() transferDto: TransferDto,
     @CurrentUser() user: CurrentUserPayload,
@@ -89,25 +79,23 @@ export class WalletsController {
   @Get('transactions')
   @UseGuards(CombinedAuthGuard, PermissionsGuard)
   @RequirePermissions(ApiKeyPermission.READ)
-  @ApiBearerAuth('JWT-auth')
-  @ApiHeader({
-    name: 'x-api-key',
-    description: 'API Key for service-to-service access (alternative to JWT)',
-    required: false,
-  })
-  async getTransactions(@CurrentUser() user: CurrentUserPayload) {
-    return this.walletsService.getTransactions(user.id);
+  @WalletsDocs.getTransactions()
+  async getTransactions(
+    @CurrentUser() user: CurrentUserPayload,
+    @Query() paginationQuery: PaginationQueryDto,
+  ) {
+    return this.walletsService.getTransactions(
+      user.id,
+      paginationQuery.page || 1,
+      paginationQuery.limit || 20,
+    );
   }
 
   @Get('deposit/:reference/status')
   @UseGuards(CombinedAuthGuard, PermissionsGuard)
   @RequirePermissions(ApiKeyPermission.READ)
   @ApiBearerAuth('JWT-auth')
-  @ApiHeader({
-    name: 'x-api-key',
-    description: 'API Key for service-to-service access (alternative to JWT)',
-    required: false,
-  })
+  @ApiSecurity('API-Key-auth')
   async getDepositStatus(
     @Param('reference') reference: string,
     @CurrentUser() user: CurrentUserPayload,
@@ -131,11 +119,7 @@ export class WalletsController {
   @UseGuards(CombinedAuthGuard, PermissionsGuard)
   @RequirePermissions(ApiKeyPermission.READ)
   @ApiBearerAuth('JWT-auth')
-  @ApiHeader({
-    name: 'x-api-key',
-    description: 'API Key for service-to-service access (alternative to JWT)',
-    required: false,
-  })
+  @ApiSecurity('API-Key-auth')
   async verifyDeposit(
     @Param('reference') reference: string,
     @CurrentUser() user: CurrentUserPayload,

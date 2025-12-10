@@ -6,10 +6,13 @@ export class TransferDto {
   @IsString()
   wallet_number: string;
 
-  @ApiProperty({ description: 'Amount to transfer', example: 6001 })
+  @ApiProperty({ 
+    description: 'Amount to transfer in main currency unit (NGN). Will be stored in smallest unit (kobo) for accuracy.', 
+    example: 6001 
+  })
   @IsNumber()
   @IsPositive()
   @Min(1)
-  amount: number;
+  amount: number; // Amount in NGN (main currency unit)
 }
 

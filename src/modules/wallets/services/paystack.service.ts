@@ -125,7 +125,7 @@ export class PaystackService {
       const response = await this.paystackClient.post(
         '/transaction/initialize',
         {
-          amount: amount * 100, // (smallest currency unit)
+          amount: amount * 100, // Convert NGN to kobo (smallest currency unit) for Paystack API
           email,
           reference,
           metadata,

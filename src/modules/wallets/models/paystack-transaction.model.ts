@@ -67,15 +67,13 @@ export class PaystackTransaction extends AbstractBaseEntity {
 
   @Column({
     name: 'amount',
-    type: 'decimal',
-    precision: 15,
-    scale: 2,
+    type: 'bigint',
     transformer: {
       to: (value: number) => value,
       from: (value: string | null) => (value === null ? null : Number(value)),
     },
   })
-  amount: number;
+  amount: number; // Stored in smallest currency unit (kobo for NGN)
 
   @Column({
     name: 'currency',
