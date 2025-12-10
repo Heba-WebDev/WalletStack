@@ -36,7 +36,7 @@ export class GoogleAuthService {
     // Determine base URL: use BASE_URL if set, otherwise construct from PORT
     let baseUrl = this.configService.get<string>('BASE_URL');
     if (!baseUrl) {
-      const port = this.configService.get<string>('PORT') ?? '3000';
+      const port = this.configService.get<string>('PORT') ?? '6001';
       baseUrl = `http://localhost:${port}`;
     }
     this.redirectUri = `${baseUrl}/v1/auth/google/callback`;

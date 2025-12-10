@@ -89,7 +89,7 @@ async function bootstrap() {
     customSiteTitle: 'WalletStack API Docs',
   });
 
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT || 6001;
   await app.listen(port);
   logger.log(`Application is running on port ${port}`);
   logger.log(`Swagger documentation available at http://localhost:${port}/docs`);

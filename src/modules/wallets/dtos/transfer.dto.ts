@@ -6,7 +6,7 @@ export class TransferDto {
   @IsString()
   wallet_number: string;
 
-  @ApiProperty({ description: 'Amount to transfer', example: 3000 })
+  @ApiProperty({ description: 'Amount to transfer', example: 6001 })
   @IsNumber()
   @IsPositive()
   @Min(1)
