@@ -19,6 +19,7 @@ import { CurrentActor, CurrentActorInfo } from '../auth/decorators/current-actor
 import { ApiKeyPermission } from '../api-keys/dtos/create-api-key.dto';
 import { DepositDto } from './dtos/deposit.dto';
 import { TransferDto } from './dtos/transfer.dto';
+import { WalletsDocs } from './docs';
 
 @Controller('wallet')
 @ApiTags('Wallets')
@@ -53,6 +54,14 @@ export class WalletsController {
   })
   async getBalance(@CurrentUser() user: CurrentUserPayload) {
     return this.walletsService.getBalance(user.id);
+  }
+
+  @Get('my-wallet-number')
+  @UseGuards(CombinedAuthGuard, PermissionsGuard)
+  @RequirePermissions(ApiKeyPermission.READ)
+  @WalletsDocs.getWalletNumber()
+  async getWalletNumber(@CurrentUser() user: CurrentUserPayload) {
+    return this.walletsService.getWalletNumber(user.id);
   }
 
   @Post('transfer')

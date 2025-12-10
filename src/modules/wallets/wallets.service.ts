@@ -148,6 +148,18 @@ export class WalletsService {
     };
   }
 
+  async getWalletNumber(userId: string) {
+    const wallet = await this.walletsModelAction.get({ userId });
+    if (!wallet) {
+      throw new CustomHttpException('Wallet not found', HttpStatus.NOT_FOUND);
+    }
+
+    return {
+      number: wallet.number,
+      currency: wallet.currency,
+    };
+  }
+
   async transfer(userId: string, walletNumber: string, amount: number, actor?: CurrentActorInfo) {
     return await this.dataSource.transaction(async (manager) => {
       // Get sender wallet
