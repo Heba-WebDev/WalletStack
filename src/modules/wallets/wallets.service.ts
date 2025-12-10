@@ -13,6 +13,12 @@ import { User } from '../users/models/user.model';
 import { Transaction } from './models/transaction.model';
 import { Wallet } from './models/wallet.model';
 import { PaystackTransaction } from './models/paystack-transaction.model';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { CurrentActorInfo } from '../auth/decorators/current-actor.decorator';
+import {
+  AuditLogActionType,
+  AuditLogActorType,
+} from '../audit-logs/models/audit-log.model';
 
 @Injectable()
 export class WalletsService {
@@ -23,6 +29,7 @@ export class WalletsService {
     private readonly paystackTransactionsModelAction: PaystackTransactionsModelAction,
     private readonly paystackService: PaystackService,
     private readonly dataSource: DataSource,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   async createWallet(
@@ -35,7 +42,7 @@ export class WalletsService {
     );
   }
 
-  async deposit(userId: string, amount: number) {
+  async deposit(userId: string, amount: number, actor?: CurrentActorInfo) {
     // Get user's wallet
     const wallet = await this.walletsModelAction.get({ userId });
     if (!wallet) {
@@ -106,6 +113,22 @@ export class WalletsService {
       },
     });
 
+    // Log audit event
+    if (actor) {
+      await this.auditLogsService.logTransactionAction(
+        actor.actorType,
+        actor.actorId,
+        AuditLogActionType.DEPOSIT_CREATED,
+        transaction.id,
+        {
+          amount,
+          reference: paystackRef,
+          walletId: wallet.id,
+          authorizationUrl: paystackResponse.data.authorization_url,
+        },
+      );
+    }
+
     console.log('[Deposit] ✅ Deposit initialized. Webhook will use reference:', paystackRef);
 
     return {
@@ -125,7 +148,7 @@ export class WalletsService {
     };
   }
 
-  async transfer(userId: string, walletNumber: string, amount: number) {
+  async transfer(userId: string, walletNumber: string, amount: number, actor?: CurrentActorInfo) {
     return await this.dataSource.transaction(async (manager) => {
       // Get sender wallet
       const senderWallet = await this.walletsModelAction.get({ userId });
@@ -202,6 +225,25 @@ export class WalletsService {
         { id: recipientWallet.id },
         { balance: recipientWallet.balance + amount },
       );
+
+      // Log audit event
+      if (actor) {
+        await this.auditLogsService.logTransactionAction(
+          actor.actorType,
+          actor.actorId,
+          AuditLogActionType.TRANSFER_SUCCESS,
+          transaction.id,
+          {
+            amount,
+            reference,
+            senderWalletId: senderWallet.id,
+            senderWalletNumber: senderWallet.number,
+            recipientWalletId: recipientWallet.id,
+            recipientWalletNumber: recipientWallet.number,
+          },
+          manager,
+        );
+      }
 
       return {
         status: 'success',
@@ -414,6 +456,21 @@ export class WalletsService {
         return { status: true, message: 'Transaction already processed' };
       }
 
+      // Log webhook received
+      await this.auditLogsService.createAuditLog({
+        actorType: AuditLogActorType.API_KEY, // Webhook from Paystack (external system)
+        actorId: null,
+        actionType: AuditLogActionType.WEBHOOK_RECEIVED,
+        targetEntity: 'transaction',
+        targetId: transaction.id,
+        metadata: {
+          paystackReference: paystackReference,
+          paystackTransactionId: data.id,
+          event: event,
+        },
+        transaction: manager,
+      });
+
       // Update transaction status
       await manager.update(
         Transaction,
@@ -453,13 +510,43 @@ export class WalletsService {
         },
       );
 
+      // Log webhook processed and deposit success
+      await this.auditLogsService.createAuditLog({
+        actorType: AuditLogActorType.API_KEY, // Webhook from Paystack (external system)
+        actorId: null,
+        actionType: AuditLogActionType.WEBHOOK_PROCESSED,
+        targetEntity: 'transaction',
+        targetId: transaction.id,
+        metadata: {
+          paystackReference: paystackReference,
+          amount: transaction.amount,
+          walletId: wallet.id,
+        },
+        transaction: manager,
+      });
+
+      await this.auditLogsService.createAuditLog({
+        actorType: AuditLogActorType.API_KEY, // Webhook from Paystack (external system)
+        actorId: null,
+        actionType: AuditLogActionType.DEPOSIT_SUCCESS,
+        targetEntity: 'transaction',
+        targetId: transaction.id,
+        metadata: {
+          paystackReference: paystackReference,
+          amount: transaction.amount,
+          walletId: wallet.id,
+        },
+        transaction: manager,
+      });
+
       console.log('[Webhook] Successfully processed and credited wallet');
       return { status: true };
     });
   }
 
-  // Fallback: Manually verify and process a transaction if webhook wasn't received
-  async verifyAndProcessDeposit(userId: string, reference: string) {
+  // Verify deposit status with Paystack (read-only, does NOT credit wallet)
+  // This endpoint is for manual verification only. Only webhooks can credit wallets.
+  async verifyDepositStatus(userId: string, reference: string) {
     const wallet = await this.walletsModelAction.get({ userId });
     if (!wallet) {
       throw new CustomHttpException('Wallet not found', HttpStatus.NOT_FOUND);
@@ -477,63 +564,43 @@ export class WalletsService {
       );
     }
 
-    // Check if already processed
-    if (paystackTransaction.webhookReceived) {
-      return { status: true, message: 'Transaction already processed' };
+    // Get the transaction from our database
+    const transaction = await this.transactionsModelAction.get({
+      id: paystackTransaction.transactionId,
+    });
+
+    if (!transaction) {
+      throw new CustomHttpException(
+        'Transaction not found',
+        HttpStatus.NOT_FOUND,
+      );
     }
 
-    // Verify with Paystack
+    // Verify ownership (transaction recipient should be user's wallet)
+    if (transaction.recipientWalletId !== wallet.id) {
+      throw new CustomHttpException(
+        'Unauthorized access to transaction',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    // Verify with Paystack (read-only check)
     const verifyResponse = await this.paystackService.verifyTransaction(
       reference,
     );
 
-    if (verifyResponse.status && verifyResponse.data.status === 'success') {
-      // Process the transaction
-      return await this.dataSource.transaction(async (manager) => {
-        const transaction = await manager.findOne(Transaction, {
-          where: { id: paystackTransaction.transactionId },
-        });
-
-        if (!transaction || transaction.status === TransactionStatus.SUCCESS) {
-          return { status: true, message: 'Already processed' };
-        }
-
-        // Update transaction status
-        await manager.update(
-          Transaction,
-          { id: transaction.id },
-          { status: TransactionStatus.SUCCESS },
-        );
-
-        // Update wallet balance
-        const wallet = await manager.findOne(Wallet, {
-          where: { id: transaction.recipientWalletId },
-        });
-
-        if (wallet) {
-          await manager.update(
-            Wallet,
-            { id: wallet.id },
-            { balance: wallet.balance + transaction.amount },
-          );
-        }
-
-        // Update Paystack transaction record
-        await manager.update(
-          PaystackTransaction,
-          { id: paystackTransaction.id },
-          {
-            webhookReceived: true,
-            webhookProcessedAt: new Date(),
-            paystackStatus: verifyResponse.data.status,
-            paystackTransactionId: verifyResponse.data.id?.toString() || null,
-          },
-        );
-
-        return { status: true, message: 'Transaction verified and processed' };
-      });
-    }
-
-    return { status: false, message: 'Transaction not successful on Paystack' };
+    // Return verification info without crediting wallet
+    // This is for manual checking only - webhook must credit the wallet
+    return {
+      reference: paystackTransaction.paystackReference,
+      local_status: transaction.status, // Status in our database
+      paystack_status: verifyResponse.data.status, // Status from Paystack
+      paystack_verified: verifyResponse.status && verifyResponse.data.status === 'success',
+      amount: transaction.amount,
+      webhook_received: paystackTransaction.webhookReceived,
+      message: paystackTransaction.webhookReceived
+        ? 'Transaction already processed via webhook'
+        : 'Transaction verified on Paystack. Waiting for webhook to credit wallet.',
+    };
   }
 }

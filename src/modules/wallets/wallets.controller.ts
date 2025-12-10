@@ -15,6 +15,7 @@ import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RequirePermissions } from '../auth/decorators/require-permissions.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CurrentUserPayload } from '../auth/decorators/current-user.decorator';
+import { CurrentActor, CurrentActorInfo } from '../auth/decorators/current-actor.decorator';
 import { ApiKeyPermission } from '../api-keys/dtos/create-api-key.dto';
 import { DepositDto } from './dtos/deposit.dto';
 import { TransferDto } from './dtos/transfer.dto';
@@ -36,8 +37,9 @@ export class WalletsController {
   async deposit(
     @Body() depositDto: DepositDto,
     @CurrentUser() user: CurrentUserPayload,
+    @CurrentActor() actor: CurrentActorInfo,
   ) {
-    return this.walletsService.deposit(user.id, depositDto.amount);
+    return this.walletsService.deposit(user.id, depositDto.amount, actor);
   }
 
   @Get('balance')
@@ -65,11 +67,13 @@ export class WalletsController {
   async transfer(
     @Body() transferDto: TransferDto,
     @CurrentUser() user: CurrentUserPayload,
+    @CurrentActor() actor: CurrentActorInfo,
   ) {
     return this.walletsService.transfer(
       user.id,
       transferDto.wallet_number,
       transferDto.amount,
+      actor,
     );
   }
 
@@ -116,7 +120,7 @@ export class WalletsController {
 
   @Post('deposit/:reference/verify')
   @UseGuards(CombinedAuthGuard, PermissionsGuard)
-  @RequirePermissions(ApiKeyPermission.DEPOSIT)
+  @RequirePermissions(ApiKeyPermission.READ)
   @ApiBearerAuth('JWT-auth')
   @ApiHeader({
     name: 'x-api-key',
@@ -127,6 +131,6 @@ export class WalletsController {
     @Param('reference') reference: string,
     @CurrentUser() user: CurrentUserPayload,
   ) {
-    return this.walletsService.verifyAndProcessDeposit(user.id, reference);
+    return this.walletsService.verifyDepositStatus(user.id, reference);
   }
 }

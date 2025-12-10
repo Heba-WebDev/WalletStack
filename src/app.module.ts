@@ -6,6 +6,7 @@ import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { WalletsModule } from './modules/wallets/wallets.module';
 import { ApiKeysModule } from './modules/api-keys/api-keys.module';
+import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 
 
 @Module({
@@ -20,6 +21,7 @@ import { ApiKeysModule } from './modules/api-keys/api-keys.module';
     AuthModule,
     WalletsModule,
     ApiKeysModule,
+    AuditLogsModule,
   ],
   controllers: [],
   providers: [],

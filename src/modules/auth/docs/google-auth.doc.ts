@@ -84,5 +84,87 @@ export class GoogleAuthDocs {
       }),
     );
   }
+
+  static googleAuthRedirect() {
+    return applyDecorators(
+      ApiOperation({
+        summary: 'Initiate Google OAuth Redirect',
+        description:
+          'Redirects the user to Google OAuth consent page. This endpoint is designed for browser-based authentication. When accessed in a browser, it will redirect to Google login. After successful authentication, Google redirects back to /auth/google/callback. **Note:** This endpoint returns a 302 redirect and cannot be tested directly in Swagger UI. Use a browser or follow redirects with curl.',
+      }),
+      ApiResponse({
+        status: 302,
+        description: 'Redirects to Google OAuth consent page',
+        headers: {
+          Location: {
+            description: 'Google OAuth authorization URL',
+            schema: {
+              type: 'string',
+              example: 'https://accounts.google.com/o/oauth2/v2/auth?...',
+            },
+          },
+        },
+      }),
+      ApiResponse({
+        status: 500,
+        description: 'GOOGLE_CLIENT_SECRET not configured',
+        schema: {
+          example: {
+            success: false,
+            status: 'error',
+            message: 'GOOGLE_CLIENT_SECRET is required for OAuth redirect flow',
+            status_code: 500,
+          },
+        },
+      }),
+    );
+  }
+
+  static googleAuthCallback() {
+    return applyDecorators(
+      ApiOperation({
+        summary: 'Google OAuth Callback',
+        description:
+          'Handles the callback from Google OAuth after user authorization. This endpoint is called by Google with an authorization code. It exchanges the code for tokens, verifies the ID token, creates/updates the user, and returns a JWT. **Note:** This endpoint is typically called by Google, not directly by clients.',
+      }),
+      ApiResponse({
+        status: 200,
+        description: 'Google authentication successful',
+        schema: {
+          example: {
+            accessToken:
+              'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3ZjQ0ZmI1My00NTBjLTRiN2ItYmNiNy03ZmUzM2M1NmFkNjgiLCJlbWFpbCI6InVzZXJAZXhhbXBsZS5jb20iLCJnb29nbGVJZCI6IjEyMzQ1Njc4OTAiLCJpYXQiOjE2MDAwMDAwMDAsImV4cCI6MTYwMDAwMzYwMH0',
+            data: {
+              user: {
+                id: '7f44fb53-450c-4b7b-bcb7-7fe33c56ad68',
+                name: 'John Doe',
+                email: 'user@example.com',
+                googleId: '1234567890',
+                avatarUrl: 'https://lh3.googleusercontent.com/a/default-user',
+                createdAt: '2023-01-01T00:00:00.000Z',
+                updatedAt: '2023-01-01T00:00:00.000Z',
+              },
+            },
+          },
+        },
+      }),
+      ApiBadRequestResponse({
+        description: 'Authorization code is missing',
+        schema: {
+          example: {
+            message: 'Authorization code is required',
+          },
+        },
+      }),
+      ApiUnauthorizedResponse({
+        description: 'Authentication failed',
+        schema: {
+          example: {
+            message: 'Authentication failed',
+          },
+        },
+      }),
+    );
+  }
 }
 
