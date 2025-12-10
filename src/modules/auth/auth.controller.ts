@@ -1,5 +1,5 @@
 import { Body, Controller, Get, HttpCode, Post, Query, Res } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { GoogleAuthDto } from './dtos/google-auth.dto';
@@ -14,9 +14,9 @@ export class AuthController {
     private readonly googleAuthService: GoogleAuthService,
   ) {}
 
+  @ApiExcludeEndpoint()
   @HttpCode(200)
-  @Post('google')
-  @GoogleAuthDocs.googleAuth()
+  @Post('google/token')
   async googleAuth(@Body() payload: GoogleAuthDto) {
     return this.authService.authenticateWithGoogle(payload.idToken);
   }

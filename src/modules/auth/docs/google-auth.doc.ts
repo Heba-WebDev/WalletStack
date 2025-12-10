@@ -15,11 +15,11 @@ import {
 
 export class GoogleAuthDocs {
   static googleAuth() {
+    const baseUrl = process.env.BASE_URL ?? 'http://localhost:3000';
     return applyDecorators(
       ApiOperation({
-        summary: 'Google OAuth login',
-        description:
-          'Authenticate users with Google OAuth2. Verifies the Google ID token and creates or updates the user account. Returns a JWT access token for subsequent requests.',
+        summary: 'Google OAuth login (POST /auth/google/token)',
+        description: `Authenticate users with Google OAuth2 by posting the Google ID token to **${baseUrl}/v1/auth/google/token**. Verifies the token and creates/updates the user, returning a JWT for subsequent requests.`,
       }),
       ApiBody({ type: GoogleAuthDto }),
       ApiResponse({
@@ -86,11 +86,13 @@ export class GoogleAuthDocs {
   }
 
   static googleAuthRedirect() {
+    const baseUrl = process.env.BASE_URL ?? 'http://localhost:3000';
+    const redirectUrl = `${baseUrl}/v1/auth/google`;
     return applyDecorators(
       ApiOperation({
         summary: 'Initiate Google OAuth Redirect',
         description:
-          'Redirects the user to Google OAuth consent page. This endpoint is designed for browser-based authentication. When accessed in a browser, it will redirect to Google login. After successful authentication, Google redirects back to /auth/google/callback. **Note:** This endpoint returns a 302 redirect and cannot be tested directly in Swagger UI. Use a browser or follow redirects with curl.',
+          `Redirects the user to Google OAuth consent page. Open <a href="${redirectUrl}" target="_blank" rel="noreferrer">${redirectUrl}</a> in a browser to begin; after consent, Google redirects to /auth/google/callback. **Note:** This endpoint returns a 302 redirect and cannot be tested directly in Swagger UI. Use a browser or follow redirects with curl.`,
       }),
       ApiResponse({
         status: 302,
