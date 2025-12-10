@@ -28,6 +28,15 @@ export class GoogleAuthService {
     private readonly configService: ConfigService,
     private readonly usersService: UsersService,
   ) {
+    const debugBaseUrl = this.configService.get<string>('BASE_URL');
+    const debugPort = this.configService.get<string>('PORT');
+    // Temporary debug log to trace redirect URI computation
+    console.log(
+      '[GoogleAuthService] BASE_URL from env:',
+      debugBaseUrl,
+      'PORT:',
+      debugPort,
+    );
     this.googleClientId =
       this.configService.get<string>('GOOGLE_CLIENT_ID') ?? '';
     this.googleClientSecret =
