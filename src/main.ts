@@ -85,6 +85,17 @@ async function bootstrap() {
     swaggerOptions: {
       persistAuthorization: true,
       persistAuthorizationInLocalStorage: true,
+  
+      requestInterceptor: (req) => {
+        const header = req.headers?.Authorization || req.headers?.authorization;
+        if (typeof header === 'string' && header.trim()) {
+          const trimmed = header.trim();
+          const hasBearer = trimmed.toLowerCase().startsWith('bearer ');
+          const token = hasBearer ? trimmed.slice(7).trim() : trimmed;
+          req.headers.Authorization = `Bearer ${token}`;
+        }
+        return req;
+      },
     },
     customSiteTitle: 'WalletStack API Docs',
   });
