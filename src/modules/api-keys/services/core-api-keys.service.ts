@@ -64,8 +64,10 @@ export class CoreApiKeysService {
     return `${this.KEY_PREFIX}${randomPart}`;
   }
 
-  private hashApiKey(apiKey: string): string {
-    return createHash('sha256').update(apiKey).digest('hex');
+  private computeKeyHash(apiKey: string): string {
+    const hash = createHash('sha256');
+    hash.update(apiKey);
+    return hash.digest('hex');
   }
 
   private async checkActiveKeysLimit(userId: string): Promise<void> {
@@ -100,7 +102,7 @@ export class CoreApiKeysService {
     this.validatePermissions(createApiKeyDto.permissions);
 
     const apiKey = this.generateApiKey();
-    const keyHash = this.hashApiKey(apiKey);
+    const keyHash = this.computeKeyHash(apiKey);
     const expiresAt = this.convertExpiryToDate(createApiKeyDto.expiry);
 
     return await this.datasource.transaction(async (transaction) => {
@@ -198,7 +200,7 @@ export class CoreApiKeysService {
     await this.checkActiveKeysLimit(userId);
 
     const apiKey = this.generateApiKey();
-    const keyHash = this.hashApiKey(apiKey);
+    const keyHash = this.computeKeyHash(apiKey);
     const expiresAt = this.convertExpiryToDate(rolloverDto.expiry);
 
     const permissions = expiredKey.permissions?.map((p) => p.permission) || [];
@@ -294,7 +296,7 @@ export class CoreApiKeysService {
 
 
   async validateApiKey(apiKey: string): Promise<ApiKey | null> {
-    const keyHash = this.hashApiKey(apiKey);
+    const keyHash = this.computeKeyHash(apiKey);
 
     const apiKeyRecord = await this.apiKeyModelAction.get(
       { keyHash },
