@@ -4,6 +4,8 @@ import {
   HttpCode,
   Post,
   Get,
+  Delete,
+  Param,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
@@ -45,6 +47,17 @@ export class ApiKeysController {
   @ApiKeysDocs.getUserApiKeys()
   async getUserApiKeys(@CurrentUser() user: CurrentUserPayload) {
     return await this.apiKeysService.getUserApiKeys(user.id);
+  }
+
+  @Delete(':id')
+  @HttpCode(200)
+  @ApiKeysDocs.revokeApiKey()
+  async revokeApiKey(
+    @Param('id') apiKeyId: string,
+    @CurrentUser() user: CurrentUserPayload,
+  ) {
+    await this.apiKeysService.revokeApiKey(user.id, apiKeyId);
+    return { status: true, message: 'API key revoked successfully' };
   }
 }
 

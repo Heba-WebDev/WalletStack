@@ -225,5 +225,73 @@ export class ApiKeysDocs {
       }),
     );
   }
+
+  static revokeApiKey() {
+    return applyDecorators(
+      ApiOperation({
+        summary: 'Revoke API Key',
+        description: 'Revoke an API key. Once revoked, the key cannot be used for authentication.',
+      }),
+      ApiBearerAuth('JWT-auth'),
+      ApiResponse({
+        status: 200,
+        description: 'API key revoked successfully',
+        schema: {
+          example: {
+            status: true,
+            message: 'API key revoked successfully',
+          },
+        },
+      }),
+      ApiBadRequestResponse({
+        description: 'API key is already revoked',
+        type: BadResponseDto,
+        schema: {
+          example: {
+            success: false,
+            status: 'error',
+            message: 'API key is already revoked',
+            status_code: 400,
+          },
+        },
+      }),
+      ApiUnauthorizedResponse({
+        description: 'Unauthorized - Invalid or missing JWT token',
+        type: UnauthorizedResponseDto,
+        schema: {
+          example: {
+            success: false,
+            status: 'error',
+            message: 'Unauthorized',
+            status_code: 401,
+          },
+        },
+      }),
+      ApiResponse({
+        status: 404,
+        description: 'API key not found',
+        schema: {
+          example: {
+            success: false,
+            status: 'error',
+            message: 'API key not found',
+            status_code: 404,
+          },
+        },
+      }),
+      ApiResponse({
+        status: 500,
+        description: 'Internal server error',
+        schema: {
+          example: {
+            success: false,
+            status: 'error',
+            message: 'Failed to revoke API key',
+            status_code: 500,
+          },
+        },
+      }),
+    );
+  }
 }
 
